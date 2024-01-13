@@ -1,0 +1,232 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Account {
+  id                String  @id @unique @default(uuid())
+  userId            String? @unique
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model User {
+  id                 String    @id @unique @default(uuid())
+  name               String?
+  last_name          String?
+  email              String?   @unique
+  emailVerified      DateTime?
+  password           String?
+  image              String?
+  birth              DateTime?
+  hasACreatorProfile Boolean?  @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  Profile       Profile[]
+  Event         Event[]
+  FavoriteEvent FavoriteEvent[]
+  Follow        Follow[]
+  Accounts      Account[]
+  Order         Order[]
+}
+
+model Profile {
+  id      String  @id @unique @default(uuid())
+  bio     String? @db.Text
+  email   String? @unique
+  phone   String?
+  links   Json?
+  company String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Event {
+  id                String       @id @unique @default(uuid())
+  title             String
+  slug              String       @unique
+  subtitle          String?
+  description       String?      @db.Text
+  location          String?
+  image             String?
+  images            String?      @db.Text // save as a JSON.strigfy of the url's images array
+  status            EventStatus? @default(DRAFT)
+  updated_status_at DateTime?
+  is_published      Boolean      @default(false)
+
+  datetime_start DateTime?
+  datetime_end   DateTime?
+
+  userId String
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  typeId String? @unique
+  type   Type?   @relation(fields: [typeId], references: [id])
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  //add ticketId relation
+
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @default(now())
+  Schedule      Schedule[]
+  FavoriteEvent FavoriteEvent[]
+  Follow        Follow[]
+  Ticket        Ticket[]
+
+  @@unique([categoryId, typeId, userId])
+  @@index([userId])
+}
+
+model Category {
+  id   String @id @unique @default(uuid())
+  name String @unique
+  slug String
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+  Event      Event[]
+}
+
+model Type {
+  id   String @id @unique @default(uuid())
+  name String @unique
+  slug String
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  Event Event[]
+}
+
+model Schedule {
+  id          String  @id @unique @default(uuid())
+  day         Int
+  description String? @db.Text
+
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id])
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@index([eventId])
+}
+
+model Ticket {
+  id            String    @id @unique @default(uuid())
+  name          String    @unique
+  remark        String?
+  price         Float?
+  quantity      Int?
+  min_quantity  Int?
+  max_quantity  Int?
+  start_sell    DateTime?
+  end_sell      DateTime?
+  userId        String
+  is_half_price Boolean   @default(false)
+
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@index([eventId])
+}
+
+model FavoriteEvent {
+  id String @id @unique @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}
+
+model Follow {
+  id String @id @unique @default(uuid())
+
+  //User who follow a organizer/producer
+  followerId String
+  follower   User   @relation(fields: [followerId], references: [id], onDelete: Cascade)
+
+  //Organizer/producer which is followed by a user
+  followedId String
+  followed   Event  @relation(fields: [followedId], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+
+  @@unique([followerId, followedId])
+  @@index([followedId])
+}
+
+model Order {
+  id String @id @unique @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ticketsInCart String      @db.Text
+  status        OrderStatus @default(PENDING)
+  typePayment   String?
+  totalPrice    Int
+
+  payed_at   DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+
+  @@index([userId])
+}
+
+enum EventStatus {
+  DRAFT
+  UNAVAILABLE
+  IN_PROGRESS
+  CANCELLED
+  POSTPONED
+  ADVANCE
+}
+
+enum OrderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
